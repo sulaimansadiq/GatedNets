@@ -36,38 +36,42 @@ import pytorch_lightning as pl
 from model.lightning_model import LightningGatedCNN
 from loss.per_loss import PerformanceLoss
 
-criterions = [PerformanceLoss(lam=args.gate_loss_weight, gate_loss=args.gate_loss)]
+def main():
+    criterions = [PerformanceLoss(lam=args.gate_loss_weight, gate_loss=args.gate_loss)]
 
-hp_criterion  = criterions[args.criterion]
-hp_num_workers = 4*(args.num_gpus*int(args.env != 'ecs_gpu'))
+    hp_criterion  = criterions[args.criterion]
+    hp_num_workers = 4*(args.num_gpus*int(args.env != 'ecs_gpu'))
 
-hparams = {'epochs':            args.epochs,
-           'batch_size':        args.batch_size,
-           'learning_rate':     args.learning_rate,
-           'momentum':          args.momentum,
-           'weight_decay':      args.weight_decay,
-           'gate_loss_weight':  args.gate_loss_weight,
-           'gate_loss':         args.gate_loss,
-           'criterion':         hp_criterion,
-           'constraints':       args.constraints,
-           'num_gpus':          args.num_gpus,
-           'num_workers':       hp_num_workers,
-           'logging':           args.logging
-           }
+    hparams = {'epochs':            args.epochs,
+               'batch_size':        args.batch_size,
+               'learning_rate':     args.learning_rate,
+               'momentum':          args.momentum,
+               'weight_decay':      args.weight_decay,
+               'gate_loss_weight':  args.gate_loss_weight,
+               'gate_loss':         args.gate_loss,
+               'criterion':         hp_criterion,
+               'constraints':       args.constraints,
+               'num_gpus':          args.num_gpus,
+               'num_workers':       hp_num_workers,
+               'logging':           args.logging
+               }
 
-print(args)
-print(hparams)
+    print(args)
+    print(hparams)
 
-transform = transforms.Compose([transforms.Resize(20), transforms.ToTensor()])
+    transform = transforms.Compose([transforms.Resize(20), transforms.ToTensor()])
 
-trainset = CIFAR10(root=args.data, train=True, download=True, transform=transform)
-validset = CIFAR10(root=args.data, train=False, download=True, transform=transform)
+    trainset = CIFAR10(root=args.data, train=True, download=True, transform=transform)
+    validset = CIFAR10(root=args.data, train=False, download=True, transform=transform)
 
-# create data loaders
-trainloader = DataLoader(trainset, batch_size=hparams['batch_size'], shuffle=True, pin_memory=True, num_workers=hp_num_workers)
-validloader = DataLoader(validset, batch_size=hparams['batch_size'], pin_memory=True, num_workers=hp_num_workers)
+    # create data loaders
+    trainloader = DataLoader(trainset, batch_size=hparams['batch_size'], shuffle=True, pin_memory=True, num_workers=hp_num_workers)
+    validloader = DataLoader(validset, batch_size=hparams['batch_size'], pin_memory=True, num_workers=hp_num_workers)
 
-lightning_model = LightningGatedCNN(hparams)
+    lightning_model = LightningGatedCNN(hparams)
+    
+    trainer = pl.Trainer(gpus=1, max_epochs=hparams['epochs'], check_val_every_n_epoch=1, num_sanity_val_steps=0)
+    trainer.fit(lightning_model, trainloader, validloader)
 
-trainer = pl.Trainer(gpus=1, max_epochs=hparams['epochs'], check_val_every_n_epoch=1, num_sanity_val_steps=0)
-trainer.fit(lightning_model, trainloader, validloader)
+if __name__ == '__main__':
+    main()
