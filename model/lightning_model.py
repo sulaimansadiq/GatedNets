@@ -71,7 +71,7 @@ class LightningGatedCNN(pl.LightningModule):
         if self.hparams['logging']:
             self.log('trn_to_loss', to_loss)
             self.log('trn_ce_loss', ce_loss)
-            self.log('trn_ce_loss', gt_loss)
+            self.log('trn_gt_loss', gt_loss)
 
             # compute layer wise on-gates
             for i, g in enumerate(gates):
