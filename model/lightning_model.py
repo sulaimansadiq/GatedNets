@@ -41,16 +41,16 @@ class LightningGatedCNN(pl.LightningModule):
         self.num_consts = len(self.hparams['constraints'])
         self.accuracy = pl.metrics.Accuracy()
 
-        # self.activations = {}
-        self.model.gconv1.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc1'))
-        self.model.gconv1.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.activ1'))
-        self.model.gconv1.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc2'))
-        self.model.gconv1.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw'))
+        if self.hparams['logging']:
+            self.model.gconv1.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc1'))
+            self.model.gconv1.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.activ1'))
+            self.model.gconv1.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc2'))
+            self.model.gconv1.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw'))
 
-        self.model.gconv2.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc1'))
-        self.model.gconv2.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.activ1'))
-        self.model.gconv2.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc2'))
-        self.model.gconv2.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw'))
+            self.model.gconv2.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc1'))
+            self.model.gconv2.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.activ1'))
+            self.model.gconv2.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc2'))
+            self.model.gconv2.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw'))
 
     def forward(self, x):
         out = self.model(x)
@@ -159,10 +159,11 @@ class LightningGatedCNN(pl.LightningModule):
             #log stuff here, selg.llog is available
             # print('Here')
             # if v.grad is not None:
-            if self.global_step % 500 == 0:
-                self.logger.experiment.add_histogram(
-                    tag=name, values=output, global_step=self.trainer.global_step
-                )
+            if self.hparams['logging']:
+                if self.global_step % 500 == 0:
+                    self.logger.experiment.add_histogram(
+                        tag=name, values=output, global_step=self.trainer.global_step
+                    )
         return hook
 
     def on_validation_epoch_end(self):
