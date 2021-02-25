@@ -41,6 +41,17 @@ class LightningGatedCNN(pl.LightningModule):
         self.num_consts = len(self.hparams['constraints'])
         self.accuracy = pl.metrics.Accuracy()
 
+        # self.activations = {}
+        self.model.gconv1.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc1'))
+        self.model.gconv1.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.activ1'))
+        self.model.gconv1.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc2'))
+        self.model.gconv1.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw'))
+
+        self.model.gconv2.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc1'))
+        self.model.gconv2.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.activ1'))
+        self.model.gconv2.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc2'))
+        self.model.gconv2.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw'))
+
     def forward(self, x):
         out = self.model(x)
 
@@ -142,6 +153,17 @@ class LightningGatedCNN(pl.LightningModule):
             self.log('val_acc_gts', log_acc_gts, logger=True, on_step=False, on_epoch=True)
 
         return to_loss
+
+    def get_activation(self, name):
+        def hook(model, input, output):                 # this will be called on every training step
+            #log stuff here, selg.llog is available
+            # print('Here')
+            # if v.grad is not None:
+            if self.global_step % 500 == 0:
+                self.logger.experiment.add_histogram(
+                    tag=name, values=output, global_step=self.trainer.global_step
+                )
+        return hook
 
     def on_validation_epoch_end(self):
         # Logging to TensorBoard by default

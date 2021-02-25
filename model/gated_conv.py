@@ -27,25 +27,28 @@ class GatingNW(nn.Module):
   def __init__(self, in_chs=None, out_gates=None):
     super(GatingNW, self).__init__()
 
-    self.fc1      = nn.Linear(in_chs, out_gates)
-    self.fc2      = nn.Linear(out_gates, out_gates)
-    self.ste      = StraightThroughEstimator()
+    self.fc1 = nn.Linear(in_chs, out_gates)
+    self.activ1 = nn.Sigmoid()
+    self.fc2 = nn.Linear(out_gates, out_gates)
+    self.ste = StraightThroughEstimator()
 
     # self.fc1      = nn.Linear(784, out_gates)
     # self.ste      = StraightThroughEstimator()
 
   def forward(self, x, bin=True):
 
+    # print('Here1')
     out = torch.mean(x, dim=(2, 3))     # spatial average of channels to give 1x1
 
     out = out.view(out.shape[0], -1)      # flatten to in_chs dim vector
     out = self.fc1(out)                    # apply fc
-    out = torch.sigmoid(out)
+    out = self.activ1(out)
     out = self.fc2(out)
     # print('out.shape GNW: ', out.shape)
     if self.training:
       out    = out + torch.normal(0, 1, out.shape).to(out.device)
       out_ss = torch.maximum(torch.zeros(out.shape, device=out.device), torch.minimum(torch.ones(out.shape, device=out.device), 1.2*torch.sigmoid(out) - 0.1))
+      # out_ss = torch.sigmoid(out)
       if bin:
         # step function is non-linearity with STE
         out_bin = self.ste(out)

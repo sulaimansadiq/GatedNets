@@ -9,10 +9,10 @@ parser.add_argument('--batch_size',         type=int,   default=32,             
 parser.add_argument('--learning_rate',      type=float, default=0.001,                                              help='init learning rate')
 parser.add_argument('--momentum',           type=float, default=0.9,                                                help='momentum')
 parser.add_argument('--weight_decay',       type=float, default=3e-4,                                               help='weight decay')
-parser.add_argument('--gate_loss_weight',   type=float, default=1.0,                                                help='gate loss weight in loss function')
+parser.add_argument('--gate_loss_weight',   type=float, default=0.0,                                                help='gate loss weight in loss function')
 parser.add_argument('--gate_loss',          type=str,   default='l2',                                               help='loss function used in gates loss')
 parser.add_argument('--criterion',          type=int,   default=0,                                                  help='multi-objective criterion. 0-PerformanceLoss')
-parser.add_argument('--constraints',        type=int,   nargs='+',                  default=[3, 6, 9, 13],          help='number of constraints used in training')
+parser.add_argument('--constraints',        type=int,   nargs='+',                  default=[13],                   help='number of constraints used in training')
 parser.add_argument('--num_gpus',           type=int,   default=1,                                                  help='number of gpus in training')
 parser.add_argument('--logging',            type=bool,  default=True,                                               help='turn on/off logging')
 args = parser.parse_args()
@@ -37,7 +37,9 @@ import pytorch_lightning as pl
 from model.lightning_model import LightningGatedCNN
 from loss.per_loss import PerformanceLoss
 
+
 def main():
+
     criterions = [PerformanceLoss(lam=args.gate_loss_weight, gate_loss=args.gate_loss)]
 
     hp_criterion  = criterions[args.criterion]
