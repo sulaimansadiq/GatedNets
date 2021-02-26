@@ -59,17 +59,21 @@ class GatingNW(nn.Module):
         out = out_ss
     else:
         out = self.ste(out)
+
+    # out_ss = torch.sigmoid(out)
+    # out_bin = self.ste(out)
+    # out = out_ss + out_bin.detach() - out_ss.detach()
+
     # print('out.shape GNW: ', out.shape)
     return out
 
 
 class GatedConv2d(nn.Module):
 
-    def __init__(self, in_chs=None, out_chs=None, ker_sz=None, pad=None, gates=None):
+    def __init__(self, in_chs=None, out_chs=None, ker_sz=None, pad=None, man_gates_=None):
         super(GatedConv2d, self).__init__()
 
         self.convs = nn.ModuleList()
-
         for i in range(out_chs):  # every filter applied separately, so that the output channels can be gated
             op = nn.Conv2d(in_chs, 1, ker_sz, padding=pad)
             self.convs.append(op)
@@ -77,15 +81,19 @@ class GatedConv2d(nn.Module):
         self.num_gates = out_chs  # one gate for every filter
         self.gating_nw = GatingNW(in_chs=in_chs, out_gates=out_chs)
 
-        if gates == None:
-            gates = torch.ones(self.num_gates)
-            self.manual_gates = False
-        else:
-            print('Manual Gating Mode')
-            gates = torch.ones(self.num_gates)
-            #      gates = torch.tensor(gates)
-            self.manual_gates = True
-        self.gates = torch.nn.Parameter(gates, requires_grad=False) # untrainable parameters for debugging
+        # if gates == None:
+        #     gates = torch.ones(self.num_gates)
+        #     self.manual_gates = False
+        # else:
+        #     print('Manual Gating Mode')
+        #     gates = torch.ones(self.num_gates)
+        #     #      gates = torch.tensor(gates)
+        #     self.manual_gates = True
+
+        self.man_gates, self.man_on_gates = man_gates_
+        self.gates = torch.nn.Parameter(torch.zeros(self.num_gates), requires_grad=False)
+        self.gates[:self.man_on_gates] = 1.0
+            # self.gates = torch.nn.Parameter(torch.ones(self.num_gates), requires_grad=False) # untrainable parameters for debugging
 
     # end of __init__()
 
@@ -96,7 +104,7 @@ class GatedConv2d(nn.Module):
         for i in range(len(self.convs)):  # apply all the convolutions separately
             out = self.convs[i](x)  # check whether this works correctly with sandbox example
 
-            if self.manual_gates:
+            if self.man_gates:
                 gates = self.gates.repeat(out.shape[0], 1)
             g = gates[:, i]
 

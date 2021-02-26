@@ -6,17 +6,25 @@ from model.gated_conv import GatedConv2d
 
 class GatedCNN(nn.Module):
 
-    def __init__(self, debug_gates=None):
+    def __init__(self, hparams=None):
         super(GatedCNN, self).__init__()
 
         self.num_classes = 10
         self.bottle_sz = 10
-        self.d_gates = debug_gates
+        self.hparams = hparams
 
-        self.gconv1 = GatedConv2d(in_chs=4, out_chs=3, ker_sz=(3, 3), pad=0,
-                                  gates=self.d_gates)  # perform image processing conv only on image data
+        # perform image processing conv only on image data
+        self.gconv1 = GatedConv2d(in_chs=4,
+                                  out_chs=3,
+                                  ker_sz=(3, 3),
+                                  pad=0,
+                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][0]))
         self.activ1 = nn.ReLU()
-        self.gconv2 = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3, 3), pad=0, gates=self.d_gates)
+        self.gconv2 = GatedConv2d(in_chs=3,
+                                  out_chs=10,
+                                  ker_sz=(3, 3),
+                                  pad=0,
+                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][1]))
         self.activ2 = nn.ReLU()
         # self.gconv3       = GatedConv2d(in_chs=3, out_chs=3, ker_sz=(3,3), pad=0, gates=self.d_gates)
         # self.gconv4       = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3,3), pad=0, gates=self.d_gates)

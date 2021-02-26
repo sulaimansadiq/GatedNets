@@ -24,10 +24,10 @@ class LightningGatedCNN(pl.LightningModule):
 
     def __init__(self, hparams):
         super().__init__()
-        self.model = GatedCNN()
 
         self.hparams = hparams
 
+        self.model = GatedCNN(self.hparams)
         self.layer_filters = []
         for m1 in self.model.modules():
             f = 0
@@ -56,7 +56,7 @@ class LightningGatedCNN(pl.LightningModule):
         out = self.model(x)
 
     def configure_optimizers(self):
-        optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'])
+        optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'], weight_decay=self.hparams['weight_decay'])
         return optimiser
 
     def training_step(self, batch, batch_idx):
@@ -154,23 +154,11 @@ class LightningGatedCNN(pl.LightningModule):
 
         return to_loss
 
-    def get_activation(self, name):
-        def hook(model, input, output):                 # this will be called on every training step
-            #log stuff here, selg.llog is available
-            # print('Here')
-            # if v.grad is not None:
-            if self.hparams['logging']:
-                if self.global_step % 500 == 0:
-                    self.logger.experiment.add_histogram(
-                        tag=name, values=output, global_step=self.trainer.global_step
-                    )
-        return hook
-
     def on_validation_epoch_end(self):
         # Logging to TensorBoard by default
         if self.hparams['logging']:
             if self.current_epoch == 0:
-                self.logger.experiment.add_graph(GatedCNN().to(self.example_input_array.device),
+                self.logger.experiment.add_graph(GatedCNN(self.hparams).to(self.example_input_array.device),
                                                  self.example_input_array[0, :][None, :, :, :].clone().detach()
                                                  )
 
@@ -199,33 +187,46 @@ class LightningGatedCNN(pl.LightningModule):
                 for k, v in self.named_parameters():
                     if v.grad is not None:
                         self.logger.experiment.add_histogram(
-                            tag='ce.'+k+'.grad', values=v.grad, global_step=self.trainer.global_step
+                            tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
                         )
 
                 opt.zero_grad() # dont need to call zero_grad again, lightning will call it again before train_step
 
-                if self.example_input_array.grad is not None:
-                    self.example_input_array.grad.detach_()
-                    self.example_input_array.grad.zero_()
-                if self.example_target_array.grad is not None:
-                    self.example_target_array.grad.detach_()
-                    self.example_target_array.grad.zero_()
-                if self.example_cons_target.grad is not None:
-                    self.example_cons_target.grad.detach_()
-                    self.example_cons_target.grad.zero_()
+                if not self.hparams['man_gates']:
+                    if self.example_input_array.grad is not None:
+                        self.example_input_array.grad.detach_()
+                        self.example_input_array.grad.zero_()
+                    if self.example_target_array.grad is not None:
+                        self.example_target_array.grad.detach_()
+                        self.example_target_array.grad.zero_()
+                    if self.example_cons_target.grad is not None:
+                        self.example_cons_target.grad.detach_()
+                        self.example_cons_target.grad.zero_()
 
-                opt = self.optimizers(use_pl_optimizer=False)
-                opt.zero_grad()
+                    opt = self.optimizers(use_pl_optimizer=False)
+                    opt.zero_grad()
 
-                logits, gates, cond = self.model(self.example_input_array)
-                to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, self.example_target_array, gates, self.example_cons_target, self.total_filters)
-                gt_loss.backward()
+                    logits, gates, cond = self.model(self.example_input_array)
+                    to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, self.example_target_array, gates, self.example_cons_target, self.total_filters)
+                    gt_loss.backward()
 
-                for k, v in self.named_parameters():
-                    if v.grad is not None:
-                        self.logger.experiment.add_histogram(
-                            tag='gt.'+k+'.grad', values=v.grad, global_step=self.trainer.global_step
-                        )
+                    for k, v in self.named_parameters():
+                        if v.grad is not None:
+                            self.logger.experiment.add_histogram(
+                                tag='gt.'+k+'.grad', values=v.grad, global_step=self.global_step
+                            )
 
-                opt.zero_grad() # dont need to call zero_grad again, lightning will call it again before train_step
+                    opt.zero_grad() # dont need to call zero_grad again, lightning will call it again before train_step
+
+    def get_activation(self, name):
+        def hook(model, input, output):                 # this will be called on every training step
+            #log stuff here, selg.llog is available
+            # print('Here')
+            # if v.grad is not None:
+            if self.hparams['logging']:
+                if self.global_step % 500 == 0:
+                    self.logger.experiment.add_histogram(
+                        tag=name, values=output, global_step=self.global_step
+                    )
+        return hook
 
