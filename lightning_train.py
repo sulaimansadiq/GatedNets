@@ -76,7 +76,7 @@ def main():
 
     lightning_model = LightningGatedCNN(hparams)
     
-    trainer = pl.Trainer(gpus=1, max_epochs=hparams['epochs'], check_val_every_n_epoch=1, num_sanity_val_steps=0, log_every_n_steps=500)
+    trainer = pl.Trainer(gpus=args.num_gpus, max_epochs=hparams['epochs'], check_val_every_n_epoch=1, num_sanity_val_steps=0, log_every_n_steps=500)
     trainer.fit(lightning_model, trainloader, validloader)
 
 
