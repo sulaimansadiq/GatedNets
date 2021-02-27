@@ -56,7 +56,8 @@ class LightningGatedCNN(pl.LightningModule):
         out = self.model(x)
 
     def configure_optimizers(self):
-        optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'], weight_decay=self.hparams['weight_decay'])
+        # optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'], weight_decay=self.hparams['weight_decay'])
+        optimiser = optim.SGD(self.parameters(), self.hparams['learning_rate'], self.hparams['momentum'], self.hparams['weight_decay'])
         return optimiser
 
     def training_step(self, batch, batch_idx):
