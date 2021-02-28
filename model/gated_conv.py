@@ -36,7 +36,6 @@ class GatingNW(nn.Module):
     self.bn2 = nn.BatchNorm1d(out_gates)
     self.ste = StraightThroughEstimator()
 
-
   def forward(self, x, bin=True):
 
     # print('Here1')
@@ -51,7 +50,7 @@ class GatingNW(nn.Module):
     # out = self.bn2(out)
     # print('out.shape GNW: ', out.shape)
     if self.training:
-      out    = out + torch.normal(0, 1, out.shape).to(out.device)
+      out = out + torch.normal(0, 1, out.shape).to(out.device)
       out_ss = torch.maximum(torch.zeros(out.shape, device=out.device), torch.minimum(torch.ones(out.shape, device=out.device), 1.2*torch.sigmoid(out) - 0.1))
       # out_ss = torch.sigmoid(out)
       if bin:
