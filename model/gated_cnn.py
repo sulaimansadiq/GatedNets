@@ -31,8 +31,8 @@ class GatedCNN(nn.Module):
         # self.gconv4       = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3,3), pad=0, gates=self.d_gates)
 
         self.fc1 = nn.Linear(2048, self.bottle_sz)
-        # self.activ3 = nn.ReLU()
-        # self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
+        self.activ3 = nn.ReLU()
+        self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
     def forward(self, x):
         # perform processing on image only
