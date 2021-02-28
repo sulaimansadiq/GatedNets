@@ -32,7 +32,7 @@ class GatedCNN(nn.Module):
 
         self.fc1 = nn.Linear(1280, self.bottle_sz)
         self.bn3 = nn.ReLU()
-        self.activ3 = nn.ReLU()
+        self.activ3 = nn.Sigmoid()
         self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
     def forward(self, x):
