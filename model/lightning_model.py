@@ -186,12 +186,13 @@ class LightningGatedCNN(pl.LightningModule):
                 ce_loss.backward()
 
                 for k, v in self.named_parameters():
-                    if v.grad is not None:
-                        self.logger.experiment.add_histogram(
-                            tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
-                        )
+                    if 'bn' not in k:
+                        if v.grad is not None:
+                            self.logger.experiment.add_histogram(
+                                tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
+                            )
 
-                opt.zero_grad() # dont need to call zero_grad again, lightning will call it again before train_step
+                opt.zero_grad()  # dont need to call zero_grad again, lightning will call it again before train_step
 
                 if not self.hparams['man_gates']:
                     if self.example_input_array.grad is not None:
@@ -212,12 +213,13 @@ class LightningGatedCNN(pl.LightningModule):
                     gt_loss.backward()
 
                     for k, v in self.named_parameters():
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='gt.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
+                        if 'bn' not in k:
+                            if v.grad is not None:
+                                self.logger.experiment.add_histogram(
+                                    tag='gt.'+k+'.grad', values=v.grad, global_step=self.global_step
+                                )
 
-                    opt.zero_grad() # dont need to call zero_grad again, lightning will call it again before train_step
+                    opt.zero_grad()  # dont need to call zero_grad again, lightning will call it again before train_step
 
     def get_activation(self, name):
         def hook(model, input, output):                 # this will be called on every training step
