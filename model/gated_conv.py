@@ -28,12 +28,14 @@ class GatingNW(nn.Module):
     super(GatingNW, self).__init__()
 
     self.fc1 = nn.Linear(in_chs, out_gates)
-    self.activ1 = nn.Sigmoid()
+    # add batchnorm here
+    self.bn1 = nn.BatchNorm1d(out_gates)
+    self.activ1 = nn.ReLU()
     self.fc2 = nn.Linear(out_gates, out_gates)
+    # add batchnorm here
+    self.bn2 = nn.BatchNorm1d(out_gates)
     self.ste = StraightThroughEstimator()
 
-    # self.fc1      = nn.Linear(784, out_gates)
-    # self.ste      = StraightThroughEstimator()
 
   def forward(self, x, bin=True):
 
@@ -42,8 +44,11 @@ class GatingNW(nn.Module):
 
     out = out.view(out.shape[0], -1)      # flatten to in_chs dim vector
     out = self.fc1(out)                    # apply fc
+    out = self.bn1(out)
     out = self.activ1(out)
+
     out = self.fc2(out)
+    # out = self.bn2(out)
     # print('out.shape GNW: ', out.shape)
     if self.training:
       out    = out + torch.normal(0, 1, out.shape).to(out.device)

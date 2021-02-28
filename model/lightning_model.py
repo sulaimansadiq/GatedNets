@@ -42,14 +42,29 @@ class LightningGatedCNN(pl.LightningModule):
         self.accuracy = pl.metrics.Accuracy()
 
         if self.hparams['logging']:
+
+            for i in range(len(self.model.gconv1.convs)):
+                self.model.gconv1.convs[i].register_forward_hook(self.get_activation('fwd.model.gconv1.convs'+str(i)))
+            self.model.gconv1.bn1.register_forward_hook(self.get_activation('fwd.model.gconv1.bn1'))
+            self.model.activ1.register_forward_hook(self.get_activation('fwd.model.activ1'))
+
+            for i in range(len(self.model.gconv2.convs)):
+                self.model.gconv2.convs[i].register_forward_hook(self.get_activation('fwd.model.gconv2.convs'+str(i)))
+            self.model.gconv2.bn1.register_forward_hook(self.get_activation('fwd.model.gconv2.bn1'))
+            self.model.activ2.register_forward_hook(self.get_activation('fwd.model.activ2'))
+
             self.model.gconv1.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc1'))
             self.model.gconv1.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.activ1'))
+            self.model.gconv1.gating_nw.bn1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.bn1'))
             self.model.gconv1.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc2'))
+            self.model.gconv1.gating_nw.bn2.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.bn2'))
             self.model.gconv1.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw'))
 
             self.model.gconv2.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc1'))
+            self.model.gconv2.gating_nw.bn1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.bn1'))
             self.model.gconv2.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.activ1'))
             self.model.gconv2.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc2'))
+            self.model.gconv2.gating_nw.bn2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.bn2'))
             self.model.gconv2.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw'))
 
     def forward(self, x):
@@ -103,18 +118,6 @@ class LightningGatedCNN(pl.LightningModule):
             self.log('trn_acc_gts', log_acc_gts, logger=True, on_step=True, on_epoch=False)
 
         return to_loss
-
-    # def on_after_backward(self):
-    #     # example to inspect gradient information in tensorboard
-    #     if self.trainer.global_step % 1500 == 0:  # don't make the tf file huge
-    #         for k, v in self.named_parameters():
-    #             if v.grad is not None:
-    #                 self.logger.experiment.add_histogram(
-    #                     tag=k, values=v.grad, global_step=self.trainer.global_step
-    #                 )
-
-    # def training_epoch_end(self, outs):
-    #     return None
 
     def validation_step(self, batch, batch_idx):
         input, target = batch

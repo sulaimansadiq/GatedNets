@@ -33,6 +33,7 @@ class GatedCNN(nn.Module):
         # self.gconv4       = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3,3), pad=0, gates=self.d_gates)
 
         self.fc1 = nn.Linear(2560, self.bottle_sz)
+        self.bn3 = nn.ReLU()
         self.activ3 = nn.ReLU()
         self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
