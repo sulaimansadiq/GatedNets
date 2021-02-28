@@ -26,11 +26,11 @@ class VanillaCNN(nn.Module):
     def forward(self, x):
 
         out = self.conv1(x)
-        out = self.bn1(out)
+        # out = self.bn1(out)
         out = self.activ1(out)
 
         out = self.conv2(out)
-        out = self.bn2(out)
+        # out = self.bn2(out)
         out = self.activ2(out)
 
         out = out.view(out.shape[0], -1)      # flatten to in_chs dim vector
