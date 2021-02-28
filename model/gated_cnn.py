@@ -31,9 +31,8 @@ class GatedCNN(nn.Module):
         # self.gconv4       = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3,3), pad=0, gates=self.d_gates)
 
         self.fc1 = nn.Linear(1280, self.bottle_sz)
-        self.bn3 = nn.ReLU()
-        self.activ3 = nn.Sigmoid()
-        self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
+        # self.activ3 = nn.ReLU()
+        # self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
     def forward(self, x):
         # perform processing on image only
@@ -65,7 +64,7 @@ class GatedCNN(nn.Module):
         # cnn_out = torch.mean(cnn_out, dim=(2, 3))
         cnn_out = cnn_out.view(cnn_out.shape[0], -1)      # flatten to in_chs dim vector
         cnn_out = self.fc1(cnn_out)
-        cnn_out = self.activ3(cnn_out)
-        cnn_out = self.fc2(cnn_out)
+        # cnn_out = self.activ3(cnn_out)
+        # cnn_out = self.fc2(cnn_out)
 
         return cnn_out, gates, cond
