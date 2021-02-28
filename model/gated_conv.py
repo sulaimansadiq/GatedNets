@@ -77,6 +77,7 @@ class GatedConv2d(nn.Module):
         for i in range(out_chs):  # every filter applied separately, so that the output channels can be gated
             op = nn.Conv2d(in_chs, 1, ker_sz, padding=pad)
             self.convs.append(op)
+        self.bn1 = nn.BatchNorm2d(out_chs)
 
         self.num_gates = out_chs  # one gate for every filter
         self.gating_nw = GatingNW(in_chs=in_chs, out_gates=out_chs)
@@ -113,6 +114,7 @@ class GatedConv2d(nn.Module):
             out_channels.append(out)  # in eval append zeros
 
         out = torch.cat(out_channels[:], dim=1)
+        out = self.bn1(out)
         return out, gates
     # end of forward()
 

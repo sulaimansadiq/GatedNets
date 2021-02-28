@@ -45,12 +45,12 @@ class GatedCNN(nn.Module):
 
         # print(x.shape)
         cnn_out, gate_nw_out = self.gconv1(x, cond)
-        cnn_out = self.bn1(cnn_out)
+        # cnn_out = self.bn1(cnn_out)                 # have to apply bn before masking, after masking doesnt make this zero
         cnn_out = self.activ1(cnn_out)
         gates.append(gate_nw_out)
         # print(cnn_out.shape)
         cnn_out, gate_nw_out = self.gconv2(cnn_out, cond)
-        cnn_out = self.bn2(cnn_out)
+        # cnn_out = self.bn2(cnn_out)
         cnn_out = self.activ2(cnn_out)
         gates.append(gate_nw_out)
         # # # print(cnn_out.shape)
