@@ -106,20 +106,24 @@ class GatedConv2d(nn.Module):
     def forward(self, x, cond=True):  # , gates=None):
         gates = self.gating_nw(x, bin=cond)
 
+        if self.man_gates:  # this doesnt need to be inside loop
+            gates = self.gates.repeat(x.shape[0], 1)
+
         out_channels = []
         for i in range(len(self.convs)):  # apply all the convolutions separately
             out = self.convs[i](x)  # check whether this works correctly with sandbox example
 
-            if self.man_gates:
-                gates = self.gates.repeat(out.shape[0], 1)
-            g = gates[:, i]
+            # if self.man_gates:                              # this doesnt need to be inside loop
+            #     gates = self.gates.repeat(out.shape[0], 1)
+            # g = gates[:, i]
 
             # print(g.shape)
-            out = out * g[:, None, None, None]  # apply gating mask
+            # out = out * g[:, None, None, None]  # apply gating mask
             out_channels.append(out)  # in eval append zeros
 
         out = torch.cat(out_channels[:], dim=1)
-        out = self.bn1(out)
+        out = self.bn1(out)                         # this is being applied after gating dumbass
+        out = out*gates[:, :, None, None]
         return out, gates
     # end of forward()
 
