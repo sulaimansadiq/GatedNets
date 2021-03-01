@@ -29,8 +29,8 @@ class GatingNW(nn.Module):
 
     self.fc1 = nn.Linear(in_chs, out_gates)
     # add batchnorm here
-    self.bn1 = nn.BatchNorm1d(out_gates)
-    self.activ1 = nn.ReLU()
+    # self.bn1 = nn.BatchNorm1d(out_gates)
+    self.activ1 = nn.Sigmoid() # nn.ReLU()
     self.fc2 = nn.Linear(out_gates, out_gates)
     # add batchnorm here
     self.bn2 = nn.BatchNorm1d(out_gates)
@@ -43,7 +43,7 @@ class GatingNW(nn.Module):
 
     out = out.view(out.shape[0], -1)      # flatten to in_chs dim vector
     out = self.fc1(out)                    # apply fc
-    out = self.bn1(out)
+    # out = self.bn1(out)
     out = self.activ1(out)
 
     out = self.fc2(out)
