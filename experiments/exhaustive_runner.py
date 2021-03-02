@@ -29,6 +29,9 @@ def main(args):
     subnet_genos = list(itertools.product(*geno_edges))
     for subnet_geno in subnet_genos:
         if sum(subnet_geno) == args.subnet_constraint:
+            man_on_gates = ''
+            for a in subnet_geno:
+                man_on_gates = man_on_gates + str(a) + ' '
             comms = []
             for i in range(args.num_runs):
                 test_args = f' --env {args.env}' \
@@ -43,7 +46,7 @@ def main(args):
                        f' --criterion {args.criterion}' \
                        f' --constraints {args.subnet_constraint}' \
                        ' --man_gates True' \
-                       f' --man_on_gates {subnet_geno}' \
+                       f' --man_on_gates {man_on_gates}' \
                        f' --num_gpus {i}' \
                        f' --logging {args.logging}' \
                        f' --num_workers {args.num_workers}'
