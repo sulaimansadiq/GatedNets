@@ -22,22 +22,22 @@ class GatedCNN(nn.Module):
         self.activ1 = nn.ReLU()
 
         self.gconv2 = GatedConv2d(in_chs=3,
-                                  out_chs=5,
+                                  out_chs=10,
                                   ker_sz=(3, 3),
                                   pad=0,
                                   man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][1]))
         self.activ2 = nn.ReLU()
 
-        self.gconv3 = GatedConv2d(in_chs=5,
-                                  out_chs=7,
-                                  ker_sz=(3, 3),
-                                  pad=0,
-                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][2]))
-        self.activ3 = nn.ReLU()
+        # self.gconv3 = GatedConv2d(in_chs=5,
+        #                           out_chs=7,
+        #                           ker_sz=(3, 3),
+        #                           pad=0,
+        #                           man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][2]))
+        # self.activ3 = nn.ReLU()
 
         # self.gconv4       = GatedConv2d(in_chs=3, out_chs=10, ker_sz=(3,3), pad=0, gates=self.d_gates)
 
-        self.fc1 = nn.Linear(1372, self.bottle_sz)
+        self.fc1 = nn.Linear(2560, self.bottle_sz)
         # self.activ4 = nn.ReLU()
         # self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
@@ -61,9 +61,9 @@ class GatedCNN(nn.Module):
         gates.append(gate_nw_out)
         # print(cnn_out.shape)
 
-        cnn_out, gate_nw_out = self.gconv3(cnn_out, cond)
-        cnn_out = self.activ3(cnn_out)
-        gates.append(gate_nw_out)
+        # cnn_out, gate_nw_out = self.gconv3(cnn_out, cond)
+        # cnn_out = self.activ3(cnn_out)
+        # gates.append(gate_nw_out)
         # print(cnn_out.shape)
 
         # cnn_out, gate_nw_out = self.gconv4(cnn_out, cond)
