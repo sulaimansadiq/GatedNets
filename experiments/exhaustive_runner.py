@@ -51,16 +51,14 @@ def main(args):
                 comms.append(comm)
             procs.append(comms)
 
-    for p in procs:
-        print(p)
     # for i in range()
 
-    proc_2 = [args.prefix + 'lightning_train.py --num_gpus 0 --learning_rate 0.03 --epochs 2', ]
-
-    # proc_1 = (args.prefix + 'sandbox.py', args.prefix + 'sandbox.py')
-    # proc_2 = (args.prefix + 'sandbox.py', )
 
     pool = Pool(processes=4)
+    for p in procs:                 # run 4 at a time
+        print(p)
+        pool.map(run_process, p)
+
 
     # pool.map(run_process, proc_1)
     # pool.map(run_process, proc_2)
