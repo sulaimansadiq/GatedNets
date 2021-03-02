@@ -8,8 +8,7 @@ import itertools
 
 
 def run_process(process):
-    str = 'python {}'.format(process)
-    print(str)
+    print(process)
     # os.system('python {}'.format(process))
     os.system(str)
 
@@ -59,7 +58,6 @@ def main(args):
 
     pool = Pool(processes=4)
     for p in procs:                 # run 4 at a time
-        print(p)
         pool.map(run_process, p)
 
 
