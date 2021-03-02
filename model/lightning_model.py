@@ -85,7 +85,8 @@ class LightningGatedCNN(pl.LightningModule):
     def configure_optimizers(self):
         # optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'], weight_decay=self.hparams['weight_decay'])
         optimiser = optim.SGD(self.parameters(), self.hparams['learning_rate'], self.hparams['momentum'], self.hparams['weight_decay'])
-        return optimiser
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, float(self.hparams['epochs']), eta_min=self.hparams['learning_rate_min'])
+        return [optimiser], [scheduler]
 
     def training_step(self, batch, batch_idx):
         input, target = batch
