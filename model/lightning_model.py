@@ -53,6 +53,11 @@ class LightningGatedCNN(pl.LightningModule):
             self.model.gconv2.bn1.register_forward_hook(self.get_activation('fwd.model.gconv2.bn1'))
             self.model.activ2.register_forward_hook(self.get_activation('fwd.model.activ2'))
 
+            for i in range(len(self.model.gconv3.convs)):
+                self.model.gconv3.convs[i].register_forward_hook(self.get_activation('fwd.model.gconv3.convs'+str(i)))
+            self.model.gconv3.bn1.register_forward_hook(self.get_activation('fwd.model.gconv3.bn1'))
+            self.model.activ3.register_forward_hook(self.get_activation('fwd.model.activ3'))
+
             self.model.gconv1.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.fc1'))
             self.model.gconv1.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.activ1'))
             # self.model.gconv1.gating_nw.bn1.register_forward_hook(self.get_activation('fwd.model.gconv1.gating_nw.bn1'))
@@ -66,6 +71,13 @@ class LightningGatedCNN(pl.LightningModule):
             self.model.gconv2.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.fc2'))
             self.model.gconv2.gating_nw.bn2.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw.bn2'))
             self.model.gconv2.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv2.gating_nw'))
+
+            self.model.gconv3.gating_nw.fc1.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.fc1'))
+            # self.model.gconv3.gating_nw.bn1.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.bn1'))
+            self.model.gconv3.gating_nw.activ1.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.activ1'))
+            self.model.gconv3.gating_nw.fc2.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.fc2'))
+            self.model.gconv3.gating_nw.bn2.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.bn2'))
+            self.model.gconv3.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw'))
 
     def forward(self, x):
         out = self.model(x)

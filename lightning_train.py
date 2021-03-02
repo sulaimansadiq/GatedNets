@@ -14,7 +14,7 @@ parser.add_argument('--gate_loss',          type=str,               default='l2'
 parser.add_argument('--criterion',          type=int,               default=0,                  help='multi-objective criterion. 0-PerformanceLoss')
 parser.add_argument('--constraints',        type=int,   nargs='+',  default=[13],               help='number of constraints used in training')
 parser.add_argument('--man_gates',          type=bool,              default=False,              help='use manual gating')
-parser.add_argument('--man_on_gates',       type=int,   nargs='+',  default=[3, 10],            help='number of on gates in each layer')
+parser.add_argument('--man_on_gates',       type=int,   nargs='+',  default=[3, 5, 7],            help='number of on gates in each layer')
 parser.add_argument('--num_gpus',           type=int,   nargs='+',  default=[1],                help='number of gpus in training')
 parser.add_argument('--logging',            type=bool,              default=True,               help='turn on/off logging')
 parser.add_argument('--num_workers',        type=int,               default=0,                  help='num_workers in dataloader')
