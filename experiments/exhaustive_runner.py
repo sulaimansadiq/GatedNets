@@ -10,7 +10,7 @@ import itertools
 def run_process(process):
     print(process)
     # os.system('python {}'.format(process))
-    os.system(str)
+    os.system(process)
 
 
 def main(args):
