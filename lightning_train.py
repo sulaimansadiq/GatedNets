@@ -11,12 +11,13 @@ parser.add_argument('--learning_rate_min',  type=float,             default=0.00
 parser.add_argument('--momentum',           type=float,             default=0.9,                help='momentum')
 parser.add_argument('--weight_decay',       type=float,             default=0.0,                help='weight decay')
 parser.add_argument('--gate_loss_weight',   type=float,             default=0.0,                help='gate loss weight in loss function')
-parser.add_argument('--gate_loss',          type=str,               default='l2',               help='loss function used in gates loss')
+parser.add_argument('--gate_loss_alpha',    type=float,             default=0.4,                help='gate loss alpha')
+parser.add_argument('--gate_loss_beta',     type=float,             default=1.3,                help='gate loss beta')
 parser.add_argument('--criterion',          type=int,               default=0,                  help='multi-objective criterion. 0-PerformanceLoss')
-parser.add_argument('--constraints',        type=int,   nargs='+',  default=[13],               help='number of constraints used in training')
+parser.add_argument('--constraints',        type=int,   nargs='+',  default=[4],               help='number of constraints used in training')
 parser.add_argument('--man_gates',          type=bool,              default=False,              help='use manual gating')
 parser.add_argument('--man_on_gates',       type=int,   nargs='+',  default=[3, 5, 7],          help='number of on gates in each layer')
-parser.add_argument('--num_gpus',           type=int,   nargs='+',  default=[1],                help='number of gpus in training')
+parser.add_argument('--num_gpus',           type=int,   nargs='+',  default=[0],                help='number of gpus in training')
 parser.add_argument('--logging',            type=bool,              default=True,               help='turn on/off logging')
 parser.add_argument('--num_workers',        type=int,               default=0,                  help='num_workers in dataloader')
 args = parser.parse_args()
@@ -39,13 +40,15 @@ from torchvision.datasets import CIFAR10
 import pytorch_lightning as pl
 from model.lightning_model import LightningGatedCNN
 from loss.per_loss import PerformanceLoss
+from loss.per_loss import PerformanceLoss_v2
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 
 
 def main():
 
-    criterions = [PerformanceLoss(lam=args.gate_loss_weight, gate_loss=args.gate_loss)]
+    criterions = [PerformanceLoss(lam=args.gate_loss_weight),
+                  PerformanceLoss_v2()]
 
     hp_criterion = criterions[args.criterion]
     hp_num_workers = args.num_workers*(len(args.num_gpus)*int(args.env != 'ecs_gpu'))
@@ -56,7 +59,8 @@ def main():
                'momentum':          args.momentum,
                'weight_decay':      args.weight_decay,
                'gate_loss_weight':  args.gate_loss_weight,
-               'gate_loss':         args.gate_loss,
+               'gate_loss_alpha':   args.gate_loss_alpha,
+               'gate_loss_beta':    args.gate_loss_beta,
                'criterion':         hp_criterion,
                'constraints':       args.constraints,
                'num_gpus':          args.num_gpus,
