@@ -34,6 +34,18 @@ if args.env == 'ecs_gpu':                                           # manually a
         if path not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + path
 
+elif args.env == 'yann_ecs':
+    ENV_PATHS = ["/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_",
+                 "/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_/Library/mingw-w64/bin",
+                 "/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_/Library/usr/bin",
+                 "/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_/Library/bin",
+                 "/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_/Script",
+                 "/home/ss2n18/mydocuments/mycode/my_envs/py3.6_torch1.7.1_/bin"]
+
+    for path in ENV_PATHS:
+        if path not in os.environ["PATH"]:
+            os.environ["PATH"] += os.pathsep + path
+
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
