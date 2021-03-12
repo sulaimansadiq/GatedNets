@@ -14,7 +14,8 @@ parser.add_argument('--gate_loss_weight',   type=float,             default=0.0,
 parser.add_argument('--gate_loss_alpha',    type=float,             default=0.4,                help='gate loss alpha')
 parser.add_argument('--gate_loss_beta',     type=float,             default=1.3,                help='gate loss beta')
 parser.add_argument('--criterion',          type=int,               default=0,                  help='multi-objective criterion. 0-PerformanceLoss')
-parser.add_argument('--constraints',        type=int,   nargs='+',  default=[4],               help='number of constraints used in training')
+parser.add_argument('--grad_clip',          type=float,             default=5,                  help='gradient clipping')
+parser.add_argument('--constraints',        type=int,   nargs='+',  default=[4],                help='number of constraints used in training')
 parser.add_argument('--man_gates',          type=bool,              default=False,              help='use manual gating')
 parser.add_argument('--man_on_gates',       type=int,   nargs='+',  default=[3, 5, 7],          help='number of on gates in each layer')
 parser.add_argument('--num_gpus',           type=int,   nargs='+',  default=[0],                help='number of gpus in training')
@@ -60,7 +61,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 def main():
 
     criterions = [PerformanceLoss(lam=args.gate_loss_weight),
-                  PerformanceLoss_v2()]
+                  PerformanceLoss_v2(alpha=args.gate_loss_alpha, beta=args.gate_loss_beta)]
 
     hp_criterion = criterions[args.criterion]
     hp_num_workers = args.num_workers*(len(args.num_gpus)*int(args.env != 'ecs_gpu'))
