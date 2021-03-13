@@ -51,8 +51,8 @@ class GatingNW(nn.Module):
     # print('out.shape GNW: ', out.shape)
     if self.training:
       out = out + torch.normal(0, 1, out.shape).to(out.device)
-      out_ss = torch.maximum(torch.zeros(out.shape, device=out.device), torch.minimum(torch.ones(out.shape, device=out.device), 1.2*torch.sigmoid(out) - 0.1))
-      # out_ss = torch.sigmoid(out)
+      # out_ss = torch.maximum(torch.zeros(out.shape, device=out.device), torch.minimum(torch.ones(out.shape, device=out.device), 1.2*torch.sigmoid(out) - 0.1))
+      out_ss = torch.sigmoid(out)
       if bin:
         # step function is non-linearity with STE
         out_bin = self.ste(out)
