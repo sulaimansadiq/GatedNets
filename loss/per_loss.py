@@ -53,7 +53,8 @@ class PerformanceLoss_v2(nn.Module):
         #compute cross entropy training loss
         ce_loss   = F.cross_entropy(logits, targets)
 
-        layer_wise_gates = ste(torch.cat(gates[:], dim=1))          # apply step function toall gates
+        # layer_wise_gates = ste(torch.cat(gates[:], dim=1))          # apply step function toall gates
+        layer_wise_gates = torch.cat(gates[:], dim=1)
         gates = torch.sum(layer_wise_gates, dim=1)/total_filters    # get total num of ON gates
 
         gates_diff = torch.exp(self.alpha * torch.pow(torch.abs(gates - gates_target), self.beta))     # MSE with gates target
