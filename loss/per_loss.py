@@ -66,3 +66,6 @@ class PerformanceLoss_v2(nn.Module):
 
         return tot_loss, ce_loss, gates_diff
 
+    def update_alpha(self, val):
+        
+        self.alpha = val

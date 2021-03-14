@@ -98,6 +98,10 @@ class LightningGatedCNN(pl.LightningModule):
         cons_target = torch.repeat_interleave(torch.tensor(self.norm_consts, device=target.device), target.shape[0])
         aug_target = target.repeat(self.num_consts)
 
+        # compute alpha for epoch - repetitive computation. shift to on_epoch_start
+        next_alpha = (self.current_epoch * self.hparams['gate_loss_alpha']) / self.hparams['epochs']
+        self.hparams['criterion'].update_alpha(next_alpha)
+
         # forward pass and loss computation
         logits, gates, cond = self.model(aug_input)
         to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
@@ -109,6 +113,8 @@ class LightningGatedCNN(pl.LightningModule):
 
         # Logging to TensorBoard by default
         if self.hparams['logging']:
+            self.log('alpha', self.hparams['criterion'].alpha)
+
             self.log('trn_to_loss', to_loss)
             self.log('trn_ce_loss', ce_loss)
             self.log('trn_gt_loss', gt_loss)
