@@ -99,7 +99,7 @@ class LightningGatedCNN(pl.LightningModule):
         aug_target = target.repeat(self.num_consts)
 
         # compute alpha for epoch - repetitive computation. shift to on_epoch_start
-        next_alpha = (self.current_epoch * self.hparams['gate_loss_alpha']) / self.hparams['epochs']
+        next_alpha = (self.current_epoch * (self.hparams['gate_loss_alpha'] - self.hparams['gate_loss_alpha_min'])) / self.hparams['epochs'] + self.hparams['gate_loss_alpha_min']
         self.hparams['criterion'].update_alpha(next_alpha)
 
         # forward pass and loss computation
