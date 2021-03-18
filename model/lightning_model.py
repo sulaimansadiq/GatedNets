@@ -25,7 +25,10 @@ class LightningGatedCNN(pl.LightningModule):
     def __init__(self, hparams):
         super().__init__()
 
+        self.automatic_optimization = False
+
         self.hparams = hparams
+        self.gt_loss_wt = 0.0
 
         self.model = GatedCNN(self.hparams)
         self.layer_filters = []
@@ -79,6 +82,8 @@ class LightningGatedCNN(pl.LightningModule):
             # self.model.gconv3.gating_nw.bn2.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw.bn2'))
             # self.model.gconv3.gating_nw.register_forward_hook(self.get_activation('fwd.model.gconv3.gating_nw'))
 
+            # self.model.gconv1.gating_nw.fc1.register_backward_hook(self.get_grads('fwd.model.gconv1.gating_nw.fc1'))
+
     def forward(self, x):
         out = self.model(x)
 
@@ -90,6 +95,18 @@ class LightningGatedCNN(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         input, target = batch
+        opt = self.optimizers()
+        if self.current_epoch < 30:
+            self.gt_loss_wt = 0.0
+        elif self.current_epoch < 60:
+            self.gt_loss_wt = 1.0
+        elif self.current_epoch < 90:
+            self.gt_loss_wt = 1.5
+        else:
+            self.gt_loss_wt = 1.0
+
+        self.gt_loss_wt = 0.0
+        eps = 1e-9
 
         # augmenting dataset here, very hacky, fix later do this in dataloader
         aug_input = input.repeat(self.num_consts, 1, 1, 1)
@@ -105,6 +122,46 @@ class LightningGatedCNN(pl.LightningModule):
         # forward pass and loss computation
         logits, gates, cond = self.model(aug_input)
         to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
+
+        ce_grads = {}
+        self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
+        for name, weight in self.named_parameters():
+            if weight.grad is not None:  # and 'gating_nw' in np[0]:
+                ce_grads[name] = weight.grad.data.clone().detach()
+                # ce_grads.append((np[0], np[1].grad.data.clone().detach()))
+        # g_ce = list(self.named_parameters())[1][1].grad.data.clone().detach()
+        opt.zero_grad()
+
+        gt_grads = []
+        self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
+        for name, weight in self.named_parameters():
+            if weight.grad is not None:  # and 'gating_nw' in np[0]:
+                weight.grad = ce_grads[name] + (weight.grad/(torch.linalg.norm(weight.grad)+eps))*(self.gt_loss_wt*torch.linalg.norm(ce_grads[name]))
+                # add previous ce_grad and gt_grad whose magnitude is normalised to w*|ce_grad|
+                # intially hard-coding 'w' to 0.0, this implies only ce will be minimised
+
+        # gt_grads = []
+        # self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
+        # for np in self.named_parameters():
+        #     if np[1].grad is not None: # and 'gating_nw' in np[0]:
+        #         gt_grads.append((np[0], np[1].grad.data.clone().detach()))
+        # g_gt = list(self.named_parameters())[1][1].grad.data.clone().detach()
+        # opt.zero_grad()
+
+        # to_grads = []
+        # self.manual_backward(to_loss, optimizer=opt, retain_graph=True)
+        # for np in self.named_parameters():
+        #     if np[1].grad is not None: # and 'gating_nw' in np[0]:
+        #         to_grads.append((np[0], np[1].grad.data.clone().detach()))
+        # g_to = list(self.named_parameters())[1][1].grad.data.clone().detach()
+        # opt.zero_grad()
+
+        # gt_grads_adj = []
+        # for i, (name, gt_grad) in gt_grads:
+        #     gt_grad_adj = (gt_grad/torch.linalg.norm(gt_grad))*(self.gt.loss.weight*torch.linalg.norm(ce_grads[i][1]))
+
+        opt.step()
+        opt.zero_grad()
 
         if self.global_step == 0:                      # for debugging, store example inputs
             self.example_input_array    = aug_input
@@ -136,7 +193,7 @@ class LightningGatedCNN(pl.LightningModule):
                 log_acc_gts['trn_acc_gts'+str(con)] = self.accuracy(pred_splits[i], target)
             self.log('trn_acc_gts', log_acc_gts, logger=True, on_step=True, on_epoch=False)
 
-        return to_loss
+        # return to_loss # manually optimising so don't need to return loss to optimiser
 
     def validation_step(self, batch, batch_idx):
         input, target = batch
@@ -244,8 +301,8 @@ class LightningGatedCNN(pl.LightningModule):
                     opt.zero_grad()  # dont need to call zero_grad again, lightning will call it again before train_step
 
     def get_activation(self, name):
-        def hook(model, input, output):                 # this will be called on every training step
-            #log stuff here, selg.llog is available
+        def hook(module, input, output):                 # this will be called on every training step
+            # log stuff here, selg.log is available
             # print('Here')
             # if v.grad is not None:
             if self.hparams['logging']:
@@ -255,3 +312,14 @@ class LightningGatedCNN(pl.LightningModule):
                     )
         return hook
 
+    def get_grads(self, name):
+        def hook(module, input, output):
+            a = 1
+            s = 2
+
+            if self.hparams['logging']:
+                if self.global_step % 500 == 0:
+                    self.logger.experiment.add_histogram(
+                        tag=name, values=output, global_step=self.global_step
+                    )
+        return hook
