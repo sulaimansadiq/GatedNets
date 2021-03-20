@@ -4,9 +4,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--env',                 type=str,               default='ecs_gpu',          help='environment used')
 parser.add_argument('--data',                type=str,               default='H:\\mycode\\data', help='dirctory for data')
-parser.add_argument('--epochs',              type=int,               default=300,                help='number of epochs to train')
+parser.add_argument('--epochs',              type=int,               default=100,                help='number of epochs to train')
 parser.add_argument('--batch_size',          type=int,               default=32,                 help='batch size')
-parser.add_argument('--learning_rate',       type=float,             default=0.001,               help='init learning rate')
+parser.add_argument('--warmup_epochs',       type=int,               default=20,                 help='number of warmup training epochs')
+parser.add_argument('--trn_gts_epochs',      type=int,               default=3,                  help='number of epochs to train gates')
+parser.add_argument('--adapt_nw_epochs',     type=int,               default=5,                  help='number of epochs to adapt nw weights')
+parser.add_argument('--learning_rate',       type=float,             default=0.001,              help='init learning rate')
 parser.add_argument('--learning_rate_min',   type=float,             default=0.001,              help='minimum learning rate in scheduler')
 parser.add_argument('--momentum',            type=float,             default=0.9,                help='momentum')
 parser.add_argument('--weight_decay',        type=float,             default=0.0,                help='weight decay')
@@ -14,7 +17,7 @@ parser.add_argument('--gate_loss_weight',    type=float,             default=1.0
 parser.add_argument('--gate_loss_alpha_min', type=float,             default=1.0,                help='gate loss alpha')
 parser.add_argument('--gate_loss_alpha',     type=float,             default=1.0,                help='gate loss alpha')
 parser.add_argument('--gate_loss_beta',      type=float,             default=1.0,                help='gate loss beta')
-parser.add_argument('--criterion',           type=int,               default=2,                  help='multi-objective criterion. 0-PerformanceLoss')
+parser.add_argument('--criterion',           type=int,               default=1,                  help='multi-objective criterion. 0-PerformanceLoss')
 parser.add_argument('--grad_clip',           type=float,             default=5,                  help='gradient clipping')
 parser.add_argument('--constraints',         type=int,   nargs='+',  default=[4],                help='number of constraints used in training')
 parser.add_argument('--man_gates',           type=bool,              default=False,              help='use manual gating')
@@ -56,6 +59,7 @@ from model.lightning_model import LightningGatedCNN
 from loss.per_loss import PerformanceLoss
 from loss.per_loss import PerformanceLoss_v2
 from loss.per_loss import PerformanceLoss_v3
+from loss.per_loss import PerformanceLoss_v4
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
 
@@ -64,12 +68,16 @@ def main():
 
     criterions = [PerformanceLoss(lam=args.gate_loss_weight),
                   PerformanceLoss_v2(alpha=args.gate_loss_alpha, beta=args.gate_loss_beta),
-                  PerformanceLoss_v3(alpha=args.gate_loss_alpha, beta=args.gate_loss_beta)]
+                  PerformanceLoss_v3(alpha=args.gate_loss_alpha, beta=args.gate_loss_beta),
+                  PerformanceLoss_v4(alpha=args.gate_loss_alpha, beta=args.gate_loss_beta)]
 
     hp_criterion = criterions[args.criterion]
     hp_num_workers = args.num_workers*(len(args.num_gpus)*int(args.env != 'ecs_gpu'))
     hparams = {'epochs':              args.epochs,
                'batch_size':          args.batch_size,
+               'warmup_epochs':       args.warmup_epochs,
+               'trn_gts_epochs':      args.trn_gts_epochs,
+               'adapt_nw_epochs':     args.adapt_nw_epochs,
                'learning_rate':       args.learning_rate,
                'learning_rate_min':   args.learning_rate_min,
                'momentum':            args.momentum,

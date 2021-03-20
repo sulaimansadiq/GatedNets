@@ -29,6 +29,7 @@ class LightningGatedCNN(pl.LightningModule):
 
         self.hparams = hparams
         self.gt_loss_wt = 0.0
+        self.cnt = 0
 
         self.model = GatedCNN(self.hparams)
         self.layer_filters = []
@@ -96,17 +97,6 @@ class LightningGatedCNN(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         input, target = batch
         opt = self.optimizers()
-        if self.current_epoch < 30:
-            self.gt_loss_wt = 0.0
-        elif self.current_epoch < 60:
-            self.gt_loss_wt = 1.0
-        elif self.current_epoch < 90:
-            self.gt_loss_wt = 1.5
-        else:
-            self.gt_loss_wt = 1.0
-
-        self.gt_loss_wt = 0.0
-        eps = 1e-9
 
         # augmenting dataset here, very hacky, fix later do this in dataloader
         aug_input = input.repeat(self.num_consts, 1, 1, 1)
@@ -118,47 +108,39 @@ class LightningGatedCNN(pl.LightningModule):
         # compute alpha for epoch - repetitive computation. shift to on_epoch_start
         next_alpha = (self.current_epoch * (self.hparams['gate_loss_alpha'] - self.hparams['gate_loss_alpha_min'])) / self.hparams['epochs'] + self.hparams['gate_loss_alpha_min']
         self.hparams['criterion'].update_alpha(next_alpha)
+        self.hparams['criterion'].update_alpha(1.0)
+        if self.hparams['logging']:
+            self.log('alpha', self.hparams['criterion'].alpha)
 
         # forward pass and loss computation
         logits, gates, cond = self.model(aug_input)
         to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
 
-        ce_grads = {}
-        self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
-        for name, weight in self.named_parameters():
-            if weight.grad is not None:  # and 'gating_nw' in np[0]:
-                ce_grads[name] = weight.grad.data.clone().detach()
-                # ce_grads.append((np[0], np[1].grad.data.clone().detach()))
-        # g_ce = list(self.named_parameters())[1][1].grad.data.clone().detach()
-        opt.zero_grad()
+        # self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
 
-        gt_grads = []
-        self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
-        for name, weight in self.named_parameters():
-            if weight.grad is not None:  # and 'gating_nw' in np[0]:
-                weight.grad = ce_grads[name] + (weight.grad/(torch.linalg.norm(weight.grad)+eps))*(self.gt_loss_wt*torch.linalg.norm(ce_grads[name]))
-                # add previous ce_grad and gt_grad whose magnitude is normalised to w*|ce_grad|
-                # intially hard-coding 'w' to 0.0, this implies only ce will be minimised
+        # if self.current_epoch < 5:      # warm-up epochs
+        #     self.manual_backward(ce_loss, optimizer=opt)
+        # else:
 
-        # gt_grads = []
-        # self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
-        # for np in self.named_parameters():
-        #     if np[1].grad is not None: # and 'gating_nw' in np[0]:
-        #         gt_grads.append((np[0], np[1].grad.data.clone().detach()))
-        # g_gt = list(self.named_parameters())[1][1].grad.data.clone().detach()
-        # opt.zero_grad()
-
-        # to_grads = []
-        # self.manual_backward(to_loss, optimizer=opt, retain_graph=True)
-        # for np in self.named_parameters():
-        #     if np[1].grad is not None: # and 'gating_nw' in np[0]:
-        #         to_grads.append((np[0], np[1].grad.data.clone().detach()))
-        # g_to = list(self.named_parameters())[1][1].grad.data.clone().detach()
-        # opt.zero_grad()
-
-        # gt_grads_adj = []
-        # for i, (name, gt_grad) in gt_grads:
-        #     gt_grad_adj = (gt_grad/torch.linalg.norm(gt_grad))*(self.gt.loss.weight*torch.linalg.norm(ce_grads[i][1]))
+        if self.current_epoch < self.hparams['warmup_epochs']:      # initial warm-up phase?
+            self.log('gating_nw_train', 0.5)                        # train complete nw with L_ce
+            for name, weight in list(self.named_parameters()):
+                if 'gating_nw' in name:
+                    weight.requires_grad = True                     # unfreeze gating_nw weights
+            self.manual_backward(ce_loss, optimizer=opt)
+        else:
+            if self.cnt < self.hparams['trn_gts_epochs']:                                        # train entire nw with L_to total loss
+                self.log('gating_nw_train', 1.0)
+                for name, weight in list(self.named_parameters()):
+                    if 'gating_nw' in name:
+                        weight.requires_grad = True                 # unfreeze gating_nw weights
+                self.manual_backward(to_loss, optimizer=opt)
+            elif self.cnt < (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):                                      # adapt nw with L_ce
+                self.log('gating_nw_train', 0.0)
+                for name, weight in list(self.named_parameters()):
+                    if 'gating_nw' in name:
+                        weight.requires_grad = False                # freeze gating_nw weights
+                self.manual_backward(ce_loss, optimizer=opt)
 
         opt.step()
         opt.zero_grad()
@@ -236,73 +218,22 @@ class LightningGatedCNN(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         # Logging to TensorBoard by default
+        if self.current_epoch < self.hparams['warmup_epochs']:
+            self.cnt = 0
+        else:
+            self.cnt = self.cnt + 1
+            if self.cnt == (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):
+                self.cnt = 0
+
         if self.hparams['logging']:
             if self.current_epoch == 0:
                 self.logger.experiment.add_graph(GatedCNN(self.hparams).to(self.example_input_array.device),
                                                  self.example_input_array[0, :][None, :, :, :].clone().detach()
                                                  )
 
-    def on_train_batch_end(self, outputs, batch, batch_idx, dataloader_idx):
-        # Logging to TensorBoard by default
-        if self.hparams['logging']:
-            if self.global_step % 500 == 0:
-                # at the end of every epoch, check what gradients w.r.t to each loss function were
-                if self.example_input_array.grad is not None:
-                    self.example_input_array.grad.detach_()
-                    self.example_input_array.grad.zero_()
-                if self.example_target_array.grad is not None:
-                    self.example_target_array.grad.detach_()
-                    self.example_target_array.grad.zero_()
-                if self.example_cons_target.grad is not None:
-                    self.example_cons_target.grad.detach_()
-                    self.example_cons_target.grad.zero_()
-
-                opt = self.optimizers(use_pl_optimizer=False)
-                opt.zero_grad()
-
-                logits, gates, cond = self.model(self.example_input_array)
-                to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, self.example_target_array, gates, self.example_cons_target, self.total_filters)
-                ce_loss.backward()
-
-                for k, v in self.named_parameters():
-                    if 'bn' not in k:
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
-
-                opt.zero_grad()  # dont need to call zero_grad again, lightning will call it again before train_step
-
-                if not self.hparams['man_gates']:
-                    if self.example_input_array.grad is not None:
-                        self.example_input_array.grad.detach_()
-                        self.example_input_array.grad.zero_()
-                    if self.example_target_array.grad is not None:
-                        self.example_target_array.grad.detach_()
-                        self.example_target_array.grad.zero_()
-                    if self.example_cons_target.grad is not None:
-                        self.example_cons_target.grad.detach_()
-                        self.example_cons_target.grad.zero_()
-
-                    opt = self.optimizers(use_pl_optimizer=False)
-                    opt.zero_grad()
-
-                    logits, gates, cond = self.model(self.example_input_array)
-                    to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, self.example_target_array, gates, self.example_cons_target, self.total_filters)
-                    gt_loss.backward()
-
-                    for k, v in self.named_parameters():
-                        if 'bn' not in k:
-                            if v.grad is not None:
-                                self.logger.experiment.add_histogram(
-                                    tag='gt.'+k+'.grad', values=v.grad, global_step=self.global_step
-                                )
-
-                    opt.zero_grad()  # dont need to call zero_grad again, lightning will call it again before train_step
-
     def get_activation(self, name):
         def hook(module, input, output):                 # this will be called on every training step
-            # log stuff here, selg.log is available
+            # log stuff here, self.log is available
             # print('Here')
             # if v.grad is not None:
             if self.hparams['logging']:

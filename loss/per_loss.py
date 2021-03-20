@@ -102,3 +102,34 @@ class PerformanceLoss_v3(nn.Module):
     def update_alpha(self, val):
 
         self.alpha = val
+
+
+class PerformanceLoss_v4(nn.Module):
+    def __init__(self, alpha=0.4, beta=1.3):
+
+        super(PerformanceLoss_v4, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+
+    def forward(self, logits, targets, gates, gates_target, total_filters):
+
+        ste = StraightThroughEstimator()
+        #print("lam: ", lam)
+
+        #compute cross entropy training loss
+        ce_loss   = F.cross_entropy(logits, targets)
+
+        # layer_wise_gates = ste(torch.cat(gates[:], dim=1))          # apply step function toall gates
+        layer_wise_gates = torch.cat(gates[:], dim=1)
+        gates = torch.sum(layer_wise_gates, dim=1)/total_filters    # get total num of ON gates
+
+        gates_diff = self.alpha * torch.pow(torch.abs(gates - gates_target), self.beta)
+        gates_diff = torch.sum(gates_diff)/gates_diff.shape[0]
+
+        tot_loss = ce_loss+gates_diff
+
+        return tot_loss, ce_loss, gates_diff
+
+    def update_alpha(self, val):
+
+        self.alpha = val
