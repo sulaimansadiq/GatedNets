@@ -134,25 +134,25 @@ class LightningGatedCNN(pl.LightningModule):
         #                 weight.requires_grad = False                # freeze gating_nw weights
         #         self.manual_backward(ce_loss, optimizer=opt)
 
-        if self.hparams['logging']:
-            if self.global_step % 500 == 0:
-                self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
-                for k, v in self.named_parameters():
-                    if 'bn' not in k:
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
-                opt.zero_grad()
-
-                self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
-                for k, v in self.named_parameters():
-                    if 'bn' not in k:
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
-                opt.zero_grad()
+        # if self.hparams['logging']:
+        #     if self.global_step % 500 == 0:
+        #         self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
+        #         for k, v in self.named_parameters():
+        #             if 'bn' not in k:
+        #                 if v.grad is not None:
+        #                     self.logger.experiment.add_histogram(
+        #                         tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
+        #                     )
+        #         opt.zero_grad()
+        #
+        #         self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
+        #         for k, v in self.named_parameters():
+        #             if 'bn' not in k:
+        #                 if v.grad is not None:
+        #                     self.logger.experiment.add_histogram(
+        #                         tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
+        #                     )
+        #         opt.zero_grad()
 
         self.manual_backward(to_loss, optimizer=opt)
 
