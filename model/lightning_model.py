@@ -85,8 +85,8 @@ class LightningGatedCNN(pl.LightningModule):
 
             # self.model.gconv1.gating_nw.fc1.register_backward_hook(self.get_grads('fwd.model.gconv1.gating_nw.fc1'))
 
-    def forward(self, x):
-        out = self.model(x)
+    def forward(self, x, idx):
+        out = self.model(x, idx)
 
     def configure_optimizers(self):
         # optimiser = optim.Adam(self.parameters(), lr=self.hparams['learning_rate'], weight_decay=self.hparams['weight_decay'])
@@ -94,141 +94,230 @@ class LightningGatedCNN(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimiser, float(self.hparams['epochs']), eta_min=self.hparams['learning_rate_min'])
         return [optimiser], [scheduler]
 
+    # def training_step(self, batch, batch_idx):
+    #     input, target = batch
+    #     opt = self.optimizers()
+    #
+    #     # augmenting dataset here, very hacky, fix later do this in dataloader
+    #     aug_input = input.repeat(self.num_consts, 1, 1, 1)
+    #     cons = torch.repeat_interleave(torch.tensor(self.norm_consts, device=aug_input.device), input.shape[0]).repeat(input.shape[2], input.shape[3], 1, 1).T
+    #     aug_input = torch.cat((aug_input, cons), 1)
+    #     cons_target = torch.repeat_interleave(torch.tensor(self.norm_consts, device=target.device), target.shape[0])
+    #     aug_target = target.repeat(self.num_consts)
+    #
+    #     # compute alpha for epoch - repetitive computation. shift to on_epoch_start
+    #     next_alpha = (self.current_epoch * (self.hparams['gate_loss_alpha'] - self.hparams['gate_loss_alpha_min'])) / self.hparams['epochs'] + self.hparams['gate_loss_alpha_min']
+    #     self.hparams['criterion'].update_alpha(next_alpha)
+    #     # self.hparams['criterion'].update_alpha(self.hparams['gate_loss_alpha'])
+    #
+    #     # forward pass and loss computation
+    #     logits, gates, cond = self.model(aug_input)
+    #     to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
+    #
+    #     # if self.current_epoch < self.hparams['warmup_epochs']:      # initial warm-up phase?
+    #     #     self.log('gating_nw_train', 0.5)                        # train complete nw with L_ce
+    #     #     for name, weight in list(self.named_parameters()):
+    #     #         if 'gating_nw' in name:
+    #     #             weight.requires_grad = True                     # unfreeze gating_nw weights
+    #     #     self.manual_backward(ce_loss, optimizer=opt)
+    #     # else:
+    #     #     if self.cnt < self.hparams['trn_gts_epochs']:                                        # train entire nw with L_to total loss
+    #     #         self.log('gating_nw_train', 1.0)
+    #     #         for name, weight in list(self.named_parameters()):
+    #     #             if 'gating_nw' in name:
+    #     #                 weight.requires_grad = True                 # unfreeze gating_nw weights
+    #     #         self.manual_backward(to_loss, optimizer=opt)
+    #     #     elif self.cnt < (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):                                      # adapt nw with L_ce
+    #     #         self.log('gating_nw_train', 0.0)
+    #     #         for name, weight in list(self.named_parameters()):
+    #     #             if 'gating_nw' in name:
+    #     #                 weight.requires_grad = False                # freeze gating_nw weights
+    #     #         self.manual_backward(ce_loss, optimizer=opt)
+    #
+    #     # if self.hparams['logging']:
+    #     #     if self.global_step % 500 == 0:
+    #     #         self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
+    #     #         for k, v in self.named_parameters():
+    #     #             if 'bn' not in k:
+    #     #                 if v.grad is not None:
+    #     #                     self.logger.experiment.add_histogram(
+    #     #                         tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
+    #     #                     )
+    #     #         opt.zero_grad()
+    #     #
+    #     #         self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
+    #     #         for k, v in self.named_parameters():
+    #     #             if 'bn' not in k:
+    #     #                 if v.grad is not None:
+    #     #                     self.logger.experiment.add_histogram(
+    #     #                         tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
+    #     #                     )
+    #     #         opt.zero_grad()
+    #
+    #     self.manual_backward(to_loss, optimizer=opt)
+    #
+    #     opt.step()
+    #     opt.zero_grad()
+    #
+    #     if self.global_step == 0:                      # for debugging, store example inputs
+    #         self.example_input_array    = aug_input
+    #         self.example_target_array   = aug_target
+    #         self.example_cons_target    = cons_target
+    #
+    #     # Logging to TensorBoard by default
+    #     if self.hparams['logging']:
+    #         self.log('alpha', self.hparams['criterion'].alpha)
+    #
+    #         self.log('trn_to_loss', to_loss)
+    #         self.log('trn_ce_loss', ce_loss)
+    #         self.log('trn_gt_loss', gt_loss)
+    #
+    #         # compute layer wise on-gates
+    #         for i, g in enumerate(gates):
+    #             avg_on_gates = torch.sum(torch.reshape(torch.sum(g, dim=1), (self.num_consts, input.shape[0])), dim=1)/input.shape[0]
+    #             # avg_on_gates = torch.sum(g)/input.shape[0]
+    #             log_cons_on_gates = {}
+    #             for j, con in enumerate(self.hparams['constraints']):
+    #                 log_cons_on_gates[str(con)] = torch.sum(g)#avg_on_gates[j].item()
+    #             self.log('trn_gts_lyr'+str(i), log_cons_on_gates, logger=True, on_step=True, on_epoch=False)
+    #
+    #         # compute total accuracy
+    #         self.log('trn_acc', self.accuracy(logits, aug_target), logger=True, on_step=True, on_epoch=False)
+    #         # compute constraint-wise accuracy
+    #         log_acc_gts = {}
+    #         pred_splits = torch.split(logits, input.shape[0])
+    #         for i, con in enumerate(self.hparams['constraints']):
+    #             log_acc_gts['trn_acc_gts'+str(con)] = self.accuracy(pred_splits[i], target)
+    #         self.log('trn_acc_gts', log_acc_gts, logger=True, on_step=True, on_epoch=False)
+    #
+    #     # return to_loss # manually optimising so don't need to return loss to optimiser
+
     def training_step(self, batch, batch_idx):
         input, target = batch
         opt = self.optimizers()
 
-        # augmenting dataset here, very hacky, fix later do this in dataloader
-        aug_input = input.repeat(self.num_consts, 1, 1, 1)
-        cons = torch.repeat_interleave(torch.tensor(self.norm_consts, device=aug_input.device), input.shape[0]).repeat(input.shape[2], input.shape[3], 1, 1).T
-        aug_input = torch.cat((aug_input, cons), 1)
-        cons_target = torch.repeat_interleave(torch.tensor(self.norm_consts, device=target.device), target.shape[0])
-        aug_target = target.repeat(self.num_consts)
+        shape = list(input.shape)
+        shape[1] = 1
 
         # compute alpha for epoch - repetitive computation. shift to on_epoch_start
         next_alpha = (self.current_epoch * (self.hparams['gate_loss_alpha'] - self.hparams['gate_loss_alpha_min'])) / self.hparams['epochs'] + self.hparams['gate_loss_alpha_min']
         self.hparams['criterion'].update_alpha(next_alpha)
-        # self.hparams['criterion'].update_alpha(self.hparams['gate_loss_alpha'])
-
-        # forward pass and loss computation
-        logits, gates, cond = self.model(aug_input)
-        to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
-
-        # if self.current_epoch < self.hparams['warmup_epochs']:      # initial warm-up phase?
-        #     self.log('gating_nw_train', 0.5)                        # train complete nw with L_ce
-        #     for name, weight in list(self.named_parameters()):
-        #         if 'gating_nw' in name:
-        #             weight.requires_grad = True                     # unfreeze gating_nw weights
-        #     self.manual_backward(ce_loss, optimizer=opt)
-        # else:
-        #     if self.cnt < self.hparams['trn_gts_epochs']:                                        # train entire nw with L_to total loss
-        #         self.log('gating_nw_train', 1.0)
-        #         for name, weight in list(self.named_parameters()):
-        #             if 'gating_nw' in name:
-        #                 weight.requires_grad = True                 # unfreeze gating_nw weights
-        #         self.manual_backward(to_loss, optimizer=opt)
-        #     elif self.cnt < (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):                                      # adapt nw with L_ce
-        #         self.log('gating_nw_train', 0.0)
-        #         for name, weight in list(self.named_parameters()):
-        #             if 'gating_nw' in name:
-        #                 weight.requires_grad = False                # freeze gating_nw weights
-        #         self.manual_backward(ce_loss, optimizer=opt)
-
-        # if self.hparams['logging']:
-        #     if self.global_step % 500 == 0:
-        #         self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
-        #         for k, v in self.named_parameters():
-        #             if 'bn' not in k:
-        #                 if v.grad is not None:
-        #                     self.logger.experiment.add_histogram(
-        #                         tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
-        #                     )
-        #         opt.zero_grad()
-        #
-        #         self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
-        #         for k, v in self.named_parameters():
-        #             if 'bn' not in k:
-        #                 if v.grad is not None:
-        #                     self.logger.experiment.add_histogram(
-        #                         tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
-        #                     )
-        #         opt.zero_grad()
-
-        self.manual_backward(to_loss, optimizer=opt)
-
-        opt.step()
-        opt.zero_grad()
-
-        if self.global_step == 0:                      # for debugging, store example inputs
-            self.example_input_array    = aug_input
-            self.example_target_array   = aug_target
-            self.example_cons_target    = cons_target
-
-        # Logging to TensorBoard by default
         if self.hparams['logging']:
             self.log('alpha', self.hparams['criterion'].alpha)
 
-            self.log('trn_to_loss', to_loss)
-            self.log('trn_ce_loss', ce_loss)
-            self.log('trn_gt_loss', gt_loss)
+        for idx, con in enumerate(self.norm_consts):
+            inp_con = torch.ones(shape).to(device=input.device)
+            inp_con.fill_(con)
 
-            # compute layer wise on-gates
-            for i, g in enumerate(gates):
-                avg_on_gates = torch.sum(torch.reshape(torch.sum(g, dim=1), (self.num_consts, input.shape[0])), dim=1)/input.shape[0]
-                log_cons_on_gates = {}
-                for j, con in enumerate(self.hparams['constraints']):
-                    log_cons_on_gates[str(con)] = avg_on_gates[j].item()
-                self.log('trn_gts_lyr'+str(i), log_cons_on_gates, logger=True, on_step=True, on_epoch=False)
+            aug_input = torch.cat((input, inp_con), 1)
+            con_target = torch.tensor(con, device=input.device).repeat(input.shape[0])
 
-            # compute total accuracy
-            self.log('trn_acc', self.accuracy(logits, aug_target), logger=True, on_step=True, on_epoch=False)
-            # compute constraint-wise accuracy
-            log_acc_gts = {}
-            pred_splits = torch.split(logits, input.shape[0])
-            for i, con in enumerate(self.hparams['constraints']):
-                log_acc_gts['trn_acc_gts'+str(con)] = self.accuracy(pred_splits[i], target)
-            self.log('trn_acc_gts', log_acc_gts, logger=True, on_step=True, on_epoch=False)
+
+            # forward pass and loss computation
+            logits, gates, cond = self.model(aug_input, idx)
+            to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, target, gates, con_target, self.total_filters)
+
+            self.manual_backward(to_loss, optimizer=opt)
+
+            opt.step()
+            opt.zero_grad()
+
+            # Logging to TensorBoard by default
+            if self.hparams['logging']:
+
+                self.log('trn_to_loss_con'+str(con), to_loss, logger=True, on_step=True, on_epoch=False)
+                self.log('trn_ce_loss_con'+str(con), ce_loss, logger=True, on_step=True, on_epoch=False)
+                self.log('trn_gt_loss_con'+str(con), gt_loss, logger=True, on_step=True, on_epoch=False)
+
+                # compute layer wise on-gates
+                for i, g in enumerate(gates):
+                    # avg_on_gates = torch.sum(torch.reshape(torch.sum(g, dim=1), (self.num_consts, input.shape[0])), dim=1)/input.shape[0]
+                    # avg_on_gates = torch.sum(g)/input.shape[0]
+                    # log_cons_on_gates = {}
+                    # for j, con in enumerate(self.hparams['constraints']):
+                    #     log_cons_on_gates[str(con)] = torch.sum(g)#avg_on_gates[j].item()
+                    self.log('trn_gts_lyr'+str(i)+'_con_'+str(con), torch.sum(g), logger=True, on_step=True, on_epoch=False)
+
+                # # compute total accuracy
+                # self.log('trn_acc', self.accuracy(logits, aug_target), logger=True, on_step=True, on_epoch=False)
+                # # compute constraint-wise accuracy
+                # log_acc_gts = {}
+                # pred_splits = torch.split(logits, input.shape[0])
+                # for i, con in enumerate(self.hparams['constraints']):
+                #     log_acc_gts['trn_acc_gts'+str(con)] = self.accuracy(pred_splits[i], target)
+                self.log('trn_acc_gts_con_'+str(con), self.accuracy(logits, target), logger=True, on_step=True, on_epoch=False)
 
         # return to_loss # manually optimising so don't need to return loss to optimiser
 
     def validation_step(self, batch, batch_idx):
         input, target = batch
+        opt = self.optimizers()
 
-        # augmenting dataset here, very hacky, fix later do this in dataloader
-        aug_input = input.repeat(self.num_consts, 1, 1, 1)
-        cons = torch.repeat_interleave(torch.tensor(self.norm_consts, device=aug_input.device), input.shape[0]).repeat(input.shape[2], input.shape[3], 1, 1).T
-        aug_input = torch.cat((aug_input, cons), 1)
-        cons_target = torch.repeat_interleave(torch.tensor(self.norm_consts, device=target.device), target.shape[0])
-        aug_target = target.repeat(self.num_consts)
+        shape = list(input.shape)
+        shape[1] = 1
 
-        # forward pass and loss computation
-        logits, gates, cond = self.model(aug_input)
-        to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
+        for idx, con in enumerate(self.norm_consts):
+            inp_con = torch.ones(shape).to(device=input.device)
+            inp_con.fill_(con)
 
-        # Logging to TensorBoard by default
-        if self.hparams['logging']:
-            self.log('val_to_loss', to_loss)
-            self.log('val_ce_loss', ce_loss)
-            self.log('val_gt_loss', gt_loss)
+            aug_input = torch.cat((input, inp_con), 1)
+            con_target = torch.tensor(con, device=input.device).repeat(input.shape[0])
 
-            # compute layer wise on-gates
-            for i, g in enumerate(gates):
-                avg_on_gates = torch.sum(torch.reshape(torch.sum(g, dim=1), (self.num_consts, input.shape[0])), dim=1)/input.shape[0]
-                log_cons_on_gates = {}
-                for j, con in enumerate(self.hparams['constraints']):
-                    log_cons_on_gates[str(con)] = avg_on_gates[j].item()
-                self.log('val_gts_lyr'+str(i), log_cons_on_gates, logger=True, on_step=False, on_epoch=True)
+            # forward pass and loss computation
+            logits, gates, cond = self.model(aug_input, idx)
+            to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, target, gates, con_target, self.total_filters)
 
-            # compute total accuracy
-            self.log('val_acc', self.accuracy(logits, aug_target), logger=True, on_step=False, on_epoch=True)
-            # compute constraint-wise accuracy
-            log_acc_gts = {}
-            pred_splits = torch.split(logits, input.shape[0])
-            for i, con in enumerate(self.hparams['constraints']):
-                log_acc_gts[str(con)] = self.accuracy(pred_splits[i], target)
-            self.log('val_acc_gts', log_acc_gts, logger=True, on_step=False, on_epoch=True)
+            # Logging to TensorBoard by default
+            if self.hparams['logging']:
 
-        return to_loss
+                self.log('val_to_loss_con'+str(con), to_loss)
+                self.log('val_ce_loss_con'+str(con), ce_loss)
+                self.log('val_gt_loss_con'+str(con), gt_loss)
+
+                for i, g in enumerate(gates):
+                    self.log('val_gts_lyr'+str(i)+'_con_'+str(con), torch.sum(g), logger=True, on_step=False, on_epoch=True)
+
+                self.log('val_acc_gts_con_'+str(con), self.accuracy(logits, target), logger=True, on_step=False, on_epoch=True)
+
+    # def validation_step(self, batch, batch_idx):
+    #     input, target = batch
+    #
+    #     # augmenting dataset here, very hacky, fix later do this in dataloader
+    #     aug_input = input.repeat(self.num_consts, 1, 1, 1)
+    #     cons = torch.repeat_interleave(torch.tensor(self.norm_consts, device=aug_input.device), input.shape[0]).repeat(input.shape[2], input.shape[3], 1, 1).T
+    #     aug_input = torch.cat((aug_input, cons), 1)
+    #     cons_target = torch.repeat_interleave(torch.tensor(self.norm_consts, device=target.device), target.shape[0])
+    #     aug_target = target.repeat(self.num_consts)
+    #
+    #     # forward pass and loss computation
+    #     logits, gates, cond = self.model(aug_input)
+    #     to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
+    #
+    #     # Logging to TensorBoard by default
+    #     if self.hparams['logging']:
+    #         self.log('val_to_loss', to_loss)
+    #         self.log('val_ce_loss', ce_loss)
+    #         self.log('val_gt_loss', gt_loss)
+    #
+    #         # compute layer wise on-gates
+    #         for i, g in enumerate(gates):
+    #             # avg_on_gates = torch.sum(torch.reshape(torch.sum(g, dim=1), (self.num_consts, input.shape[0])), dim=1)/input.shape[0]
+    #             # avg_on_gates = torch.sum(g)/input.shape[0]
+    #             log_cons_on_gates = {}
+    #             for j, con in enumerate(self.hparams['constraints']):
+    #                 log_cons_on_gates[str(con)] = torch.sum(g) #avg_on_gates[j].item()
+    #             self.log('val_gts_lyr'+str(i), log_cons_on_gates, logger=True, on_step=False, on_epoch=True)
+    #
+    #         # compute total accuracy
+    #         self.log('val_acc', self.accuracy(logits, aug_target), logger=True, on_step=False, on_epoch=True)
+    #         # compute constraint-wise accuracy
+    #         log_acc_gts = {}
+    #         pred_splits = torch.split(logits, input.shape[0])
+    #         for i, con in enumerate(self.hparams['constraints']):
+    #             log_acc_gts[str(con)] = self.accuracy(pred_splits[i], target)
+    #         self.log('val_acc_gts', log_acc_gts, logger=True, on_step=False, on_epoch=True)
+    #
+    #     return to_loss
 
     def on_validation_epoch_end(self):
         # Logging to TensorBoard by default
@@ -239,11 +328,11 @@ class LightningGatedCNN(pl.LightningModule):
             if self.cnt == (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):
                 self.cnt = 0
 
-        if self.hparams['logging']:
-            if self.current_epoch == 0:
-                self.logger.experiment.add_graph(GatedCNN(self.hparams).to(self.example_input_array.device),
-                                                 self.example_input_array[0, :][None, :, :, :].clone().detach()
-                                                 )
+        # if self.hparams['logging']:
+        #     if self.current_epoch == 0:
+        #         self.logger.experiment.add_graph(GatedCNN(self.hparams).to(self.example_input_array.device),
+        #                                          self.example_input_array[0, :][None, :, :, :].clone().detach()
+        #                                          )
 
     def get_activation(self, name):
         def hook(module, input, output):                 # this will be called on every training step
