@@ -44,9 +44,9 @@ class GatingNW(nn.Module):
     out = out.view(out.shape[0], -1)      # flatten to in_chs dim vector
     out = self.fc1(out)                    # apply fc
     # out = self.bn1(out)
-    out = self.activ1(out)
-
-    out = self.fc2(out)
+    # out = self.activ1(out)
+    #
+    # out = self.fc2(out)
     # out = self.bn2(out)
     # print('out.shape GNW: ', out.shape)
     if self.training:
@@ -74,54 +74,62 @@ class GatingNW(nn.Module):
 
 class GatedConv2d(nn.Module):
 
-    def __init__(self, in_chs=None, out_chs=None, ker_sz=None, pad=None, man_gates_=None):
+    def __init__(self, in_chs=None, out_chs=None, ker_sz=None, pad=None, man_gates_=None, num_cons_=1):
         super(GatedConv2d, self).__init__()
 
         self.convs = nn.ModuleList()
         for i in range(out_chs):  # every filter applied separately, so that the output channels can be gated
             op = nn.Conv2d(in_chs, 1, ker_sz, padding=pad)
             self.convs.append(op)
+
+        self.conv = nn.Conv2d(in_chs, out_chs, ker_sz, padding=pad)
+
+        self.bns = nn.ModuleList()
+        for i in range(num_cons_):
+            self.bns.append(nn.BatchNorm2d(out_chs))
+
         self.bn1 = nn.BatchNorm2d(out_chs)
 
         self.num_gates = out_chs  # one gate for every filter
         self.gating_nw = GatingNW(in_chs=in_chs, out_gates=out_chs)
 
-        # if gates == None:
-        #     gates = torch.ones(self.num_gates)
-        #     self.manual_gates = False
-        # else:
-        #     print('Manual Gating Mode')
-        #     gates = torch.ones(self.num_gates)
-        #     #      gates = torch.tensor(gates)
-        #     self.manual_gates = True
-
         self.man_gates, self.man_on_gates = man_gates_
         self.gates = torch.nn.Parameter(torch.zeros(self.num_gates), requires_grad=False)
         self.gates[:self.man_on_gates] = 1.0
-            # self.gates = torch.nn.Parameter(torch.ones(self.num_gates), requires_grad=False) # untrainable parameters for debugging
+        self.num_cons_ = num_cons_
 
     # end of __init__()
 
-    def forward(self, x, cond=True):  # , gates=None):
+    def forward(self, x, idx, cond):  # , gates=None):
         gates = self.gating_nw(x, bin=cond)
 
         if self.man_gates:  # this doesnt need to be inside loop
             gates = self.gates.repeat(x.shape[0], 1)
 
-        out_channels = []
-        for i in range(len(self.convs)):  # apply all the convolutions separately
-            out = self.convs[i](x)  # check whether this works correctly with sandbox example
+        # out_channels = []
+        # for i in range(len(self.convs)):  # apply all the convolutions separately
+        #     out = self.convs[i](x)  # check whether this works correctly with sandbox example
+        #
+        #     # if self.man_gates:                              # this doesnt need to be inside loop
+        #     #     gates = self.gates.repeat(out.shape[0], 1)
+        #     # g = gates[:, i]
+        #
+        #     # print(g.shape)
+        #     # out = out * g[:, None, None, None]  # apply gating mask
+        #     out_channels.append(out)  # in eval append zeros
+        #
+        # out = torch.cat(out_channels[:], dim=1)
 
-            # if self.man_gates:                              # this doesnt need to be inside loop
-            #     gates = self.gates.repeat(out.shape[0], 1)
-            # g = gates[:, i]
-
-            # print(g.shape)
-            # out = out * g[:, None, None, None]  # apply gating mask
-            out_channels.append(out)  # in eval append zeros
-
-        out = torch.cat(out_channels[:], dim=1)
-        out = self.bn1(out)                         # this is being applied after gating dumbass
+        out = self.conv(x)
+        # bn_out = []
+        # bs = out.shape[0]//self.num_cons_
+        # for i in range(self.num_cons_):
+        #     b_out = self.bns[i](out[bs*i:(bs*i+bs)])
+        #     bn_out.append(b_out)
+        out = self.bns[idx](out)
+        # out = torch.cat(out[:], dim=0)
+        # out = self.bn1(out)                         # this is being applied after gating dumbass
+        # out = self.bn1(out)                         # this is being applied after gating dumbass
         out = out*gates[:, :, None, None]
         return out, gates
     # end of forward()

@@ -18,14 +18,17 @@ class GatedCNN(nn.Module):
                                   out_chs=3,
                                   ker_sz=(3, 3),
                                   pad=0,
-                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][0]))
+                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][0]),
+                                  num_cons_=len(self.hparams['constraints']))
         self.activ1 = nn.ReLU()
 
         self.gconv2 = GatedConv2d(in_chs=3,
                                   out_chs=10,
                                   ker_sz=(3, 3),
                                   pad=0,
-                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][1]))
+                                  man_gates_=(self.hparams['man_gates'], self.hparams['man_on_gates'][1]),
+                                  num_cons_=len(self.hparams['constraints']))
+
         self.activ2 = nn.ReLU()
 
         # self.gconv3 = GatedConv2d(in_chs=5,
@@ -41,7 +44,7 @@ class GatedCNN(nn.Module):
         # self.activ4 = nn.ReLU()
         # self.fc2 = nn.Linear(self.bottle_sz, self.num_classes)
 
-    def forward(self, x):
+    def forward(self, x, idx):
         # perform processing on image only
         # image, constraint = torch.split(x, [3, 1], dim=1)
 
@@ -49,13 +52,13 @@ class GatedCNN(nn.Module):
         gates = []
 
         # print(x.shape)
-        cnn_out, gate_nw_out = self.gconv1(x, cond)
+        cnn_out, gate_nw_out = self.gconv1(x, idx, cond)
         # cnn_out = self.bn1(cnn_out)                 # have to apply bn before masking, after masking doesnt make this zero
         cnn_out = self.activ1(cnn_out)
         gates.append(gate_nw_out)
         # print(cnn_out.shape)
 
-        cnn_out, gate_nw_out = self.gconv2(cnn_out, cond)
+        cnn_out, gate_nw_out = self.gconv2(cnn_out, idx, cond)
         # cnn_out = self.bn2(cnn_out)
         cnn_out = self.activ2(cnn_out)
         gates.append(gate_nw_out)

@@ -30,6 +30,7 @@ class LightningVanillaCNN(pl.LightningModule):
         self.norm_consts = [float(g)/self.total_filters for g in self.hparams['constraints']]
         self.num_consts = len(self.hparams['constraints'])
         self.accuracy = pl.metrics.Accuracy()
+        self.criterion = torch.nn.CrossEntropyLoss()
 
     def forward(self, x):
         out = self.model(x)
@@ -51,7 +52,7 @@ class LightningVanillaCNN(pl.LightningModule):
 
         # forward pass and loss computation
         logits = self.model(aug_input)
-        ce_loss = self.hparams['criterion'](logits, aug_target)
+        ce_loss = self.criterion(logits, aug_target)
 
         if self.global_step == 0:                      # for debugging, store example inputs
             self.example_input_array    = aug_input
@@ -85,7 +86,8 @@ class LightningVanillaCNN(pl.LightningModule):
 
         # forward pass and loss computation
         logits = self.model(aug_input)
-        ce_loss = self.hparams['criterion'](logits, aug_target)
+        ce_loss = self.criterion(logits, aug_target)
+        ce_loss = self.criterion(logits, aug_target)
 
         # Logging to TensorBoard by default
         if self.hparams['logging']:
