@@ -136,7 +136,7 @@ class LightningGatedCNN(pl.LightningModule):
 
         if self.hparams['logging']:
             if self.global_step % 500 == 0:
-                self.manual_backward(ce_loss, optimizer=opt)
+                self.manual_backward(ce_loss, optimizer=opt, retain_graph=True)
                 for k, v in self.named_parameters():
                     if 'bn' not in k:
                         if v.grad is not None:
@@ -145,7 +145,7 @@ class LightningGatedCNN(pl.LightningModule):
                             )
                 opt.zero_grad()
 
-                self.manual_backward(gt_loss, optimizer=opt)
+                self.manual_backward(gt_loss, optimizer=opt, retain_graph=True)
                 for k, v in self.named_parameters():
                     if 'bn' not in k:
                         if v.grad is not None:
