@@ -32,14 +32,14 @@ class LightningGatedCNN(pl.LightningModule):
         self.cnt = 0
 
         self.model = GatedCNN(self.hparams)
-        self.layer_filters = []
-        for m1 in self.model.modules():
-            f = 0
-            if isinstance(m1, GatedConv2d):
-                for m2 in m1.modules():
-                    if isinstance(m2, nn.Conv2d):
-                        f = f + 1
-                self.layer_filters.append(f)
+        self.layer_filters = [3.0, 10.0]
+        # for m1 in self.model.modules():
+        #     f = 0
+        #     if isinstance(m1, GatedConv2d):
+        #         for m2 in m1.modules():
+        #             if isinstance(m2, nn.Conv2d):
+        #                 f = f + 1
+        #         self.layer_filters.append(f)
         self.total_filters = float(sum(self.layer_filters))   # make this dynamic
         self.norm_consts = [float(g)/self.total_filters for g in self.hparams['constraints']]
         self.num_consts = len(self.hparams['constraints'])
