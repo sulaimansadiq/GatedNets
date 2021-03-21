@@ -108,32 +108,53 @@ class LightningGatedCNN(pl.LightningModule):
         # compute alpha for epoch - repetitive computation. shift to on_epoch_start
         next_alpha = (self.current_epoch * (self.hparams['gate_loss_alpha'] - self.hparams['gate_loss_alpha_min'])) / self.hparams['epochs'] + self.hparams['gate_loss_alpha_min']
         self.hparams['criterion'].update_alpha(next_alpha)
+        self.hparams['criterion'].update_alpha(self.hparams['gate_loss_alpha'])
 
         # forward pass and loss computation
         logits, gates, cond = self.model(aug_input)
         to_loss, ce_loss, gt_loss = self.hparams['criterion'](logits, aug_target, gates, cons_target, self.total_filters)
 
-        if self.hparams['logging']:
-            if self.global_step % 500 == 0:
+        if self.current_epoch < self.hparams['warmup_epochs']:      # initial warm-up phase?
+            self.log('gating_nw_train', 0.5)                        # train complete nw with L_ce
+            for name, weight in list(self.named_parameters()):
+                if 'gating_nw' in name:
+                    weight.requires_grad = True                     # unfreeze gating_nw weights
+            self.manual_backward(ce_loss, optimizer=opt)
+        else:
+            if self.cnt < self.hparams['trn_gts_epochs']:                                        # train entire nw with L_to total loss
+                self.log('gating_nw_train', 1.0)
+                for name, weight in list(self.named_parameters()):
+                    if 'gating_nw' in name:
+                        weight.requires_grad = True                 # unfreeze gating_nw weights
+                self.manual_backward(to_loss, optimizer=opt)
+            elif self.cnt < (self.hparams['trn_gts_epochs'] + self.hparams['adapt_nw_epochs']):                                      # adapt nw with L_ce
+                self.log('gating_nw_train', 0.0)
+                for name, weight in list(self.named_parameters()):
+                    if 'gating_nw' in name:
+                        weight.requires_grad = False                # freeze gating_nw weights
                 self.manual_backward(ce_loss, optimizer=opt)
-                for k, v in self.named_parameters():
-                    if 'bn' not in k:
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
-                opt.zero_grad()
 
-                self.manual_backward(gt_loss, optimizer=opt)
-                for k, v in self.named_parameters():
-                    if 'bn' not in k:
-                        if v.grad is not None:
-                            self.logger.experiment.add_histogram(
-                                tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
-                            )
-                opt.zero_grad()
-
-        self.manual_backward(to_loss, optimizer=opt)
+        # if self.hparams['logging']:
+        #     if self.global_step % 500 == 0:
+        #         self.manual_backward(ce_loss, optimizer=opt)
+        #         for k, v in self.named_parameters():
+        #             if 'bn' not in k:
+        #                 if v.grad is not None:
+        #                     self.logger.experiment.add_histogram(
+        #                         tag='ce.'+k+'.grad', values=v.grad, global_step=self.global_step
+        #                     )
+        #         opt.zero_grad()
+        #
+        #         self.manual_backward(gt_loss, optimizer=opt)
+        #         for k, v in self.named_parameters():
+        #             if 'bn' not in k:
+        #                 if v.grad is not None:
+        #                     self.logger.experiment.add_histogram(
+        #                         tag='to.'+k+'.grad', values=v.grad, global_step=self.global_step
+        #                     )
+        #         opt.zero_grad()
+        #
+        # self.manual_backward(to_loss, optimizer=opt)
 
         opt.step()
         opt.zero_grad()
